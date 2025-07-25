@@ -35,6 +35,9 @@ PREMISE_ENGINE_NAME_LINUX = "Linux"
 PREMISE_ENGINE_NAME_APPLE_SILICON = "AppleSilicon"
 PREMISE_LINUX_FILENAME = "Premise_Linux"
 PREMISE_APPLESILICON_FILENAME = "Premise_AppleSilicon"
+PREMISE_ENGINE_NAME_WINDOWS = "Premise_Windows"
+PREMISE_WINDOWS_FILENAME = "Premise_Windows.exe"
+
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +161,8 @@ def get_premise_path(premise_engine: Optional[str] = None):
             premise_engine = PREMISE_ENGINE_NAME_LINUX
         elif try_premise(os.path.join(module_path, PREMISE_APPLESILICON_FILENAME)):
             premise_engine = PREMISE_ENGINE_NAME_APPLE_SILICON
+        elif try_premise(os.path.join(module_path, PREMISE_WINDOWS_FILENAME)):
+            premise_engine = PREMISE_ENGINE_NAME_WINDOWS
         
         if premise_engine != None:
             # we found one! Let's try to store it
@@ -179,6 +184,8 @@ def get_premise_path(premise_engine: Optional[str] = None):
         path = os.path.join(module_path, PREMISE_LINUX_FILENAME)
     elif premise_engine == PREMISE_ENGINE_NAME_APPLE_SILICON:
         path = os.path.join(module_path, PREMISE_APPLESILICON_FILENAME)
+    elif premise_engine == PREMISE_ENGINE_NAME_WINDOWS:
+        path = os.path.join(module_path, PREMISE_WINDOWS_FILENAME)
     else:
         raise Exception(f"Unknown Premise engine '{premise_engine}'")
 
