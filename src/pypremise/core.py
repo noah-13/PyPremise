@@ -79,22 +79,37 @@ class PremiseResult:
                f"{self.label1_count} in {self.group_1_name})"
 
 
-class Premise:
+import os
+import platform
 
-    def __init__(self, voc_index_to_token: Optional[Mapping[int, str]] = None,
-                 embedding_index_to_vector: Optional[Mapping] = None, embedding_dimensionality: int = -1,
+class Premise:
+    def __init__(self, 
+                 voc_index_to_token: Optional[Mapping[int, str]] = None,
+                 embedding_index_to_vector: Optional[Mapping] = None, 
+                 embedding_dimensionality: int = -1,
                  max_neighbor_distance: int = 0,
-                 fisher_p_value: float = 0.01, clause_max_overlap: float = 0.05, min_overlap: float = 0.3,
-                 group_0_name: str = "group 0", group_1_name: str = "group 1",
+                 fisher_p_value: float = 0.01, 
+                 clause_max_overlap: float = 0.05, 
+                 min_overlap: float = 0.3,
+                 group_0_name: str = "group 0", 
+                 group_1_name: str = "group 1",
                  premise_engine: Optional[str] = None):
 
-        if embedding_index_to_vector is not None or embedding_dimensionality > 0 or max_neighbor_distance > 0:
-            # if we use embeddings, all values need to be set correctly
-            if not (embedding_index_to_vector is not None and embedding_dimensionality > 0 and
-                    max_neighbor_distance > 0):
-                raise Exception("If you use embeddings, you must set all three parts correctly:"
-                                "embedding_token_to_vector must be a map from tokens to vectors, the "
-                                "embedding dimensionality must be given and the max_neighbor_distance must be > 0.")
+        # 参数校验
+        if (embedding_index_to_vector is not None 
+            or embedding_dimensionality > 0 
+            or max_neighbor_distance > 0):
+            if not (embedding_index_to_vector is not None 
+                    and embedding_dimensionality > 0 
+                    and max_neighbor_distance > 0):
+                raise Exception(
+                    "If you use embeddings, you must set all three parts correctly: "
+                    "embedding_token_to_vector must be a map from tokens to vectors, "
+                    "the embedding dimensionality must be given, and "
+                    "the max_neighbor_distance must be > 0."
+                )
+
+        # 保存参数
         self.voc_index_to_token = voc_index_to_token
         self.embedding_index_to_vector = embedding_index_to_vector
         self.embedding_dimensionality = embedding_dimensionality
@@ -104,52 +119,123 @@ class Premise:
         self.min_overlap = min_overlap
         self.group_0_name = group_0_name
         self.group_1_name = group_1_name
-        self.premise_engine = premise_engine
+
+        # === 统一 Premise 可执行文件路径 ===
+        if premise_engine is not None:
+            # 用户手动传入路径
+            self.premise_engine = premise_engine
+        else:
+            system = platform.system()
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+            if system == "Windows":
+                exe_name = "Premise_Windows.exe"
+            elif system == "Linux":
+                exe_name = "Premise_Linux"
+            elif system == "Darwin":  # macOS
+                exe_name = "Premise_Applesilicon"
+            else:
+                raise RuntimeError(f"Unsupported OS: {system}")
+
+            exe_path = os.path.join(base_dir, exe_name)
+            self.premise_engine = exe_path
+
+        # 检查可执行文件是否存在
+        if not os.path.exists(self.premise_engine):
+            raise FileNotFoundError(
+                f"Premise binary not found at: {self.premise_engine}\n"
+                f"Expected in src/pypremise directory as "
+                f"'Premise_Windows.exe' (Windows), 'Premise_Linux' (Linux), "
+                f"or 'Premise_Applesilicon' (macOS). "
+                f"Alternatively, pass `premise_engine=...` explicitly."
+            )
+
+
+
 
     def find_patterns(self, instances: List[PremiseInstance]):
         import pypremise.io
-        import os
+        import os, time, tempfile
 
-        # the Premise C++ code reads and write to files for in and output
+        # === 创建临时文件，并立刻 close()，避免 Windows 锁定 ===
         feature_file = tempfile.NamedTemporaryFile(delete=False)
+        feature_file.close()
         label_file = tempfile.NamedTemporaryFile(delete=False)
+        label_file.close()
         result_file = tempfile.NamedTemporaryFile(delete=False)
+        result_file.close()
 
-        pypremise.io.write_dat_content(instances, feature_file.name, label_file.name)
+        feature_path = os.path.abspath(feature_file.name).replace("\\", "/")
+        label_path   = os.path.abspath(label_file.name).replace("\\", "/")
+        result_path  = os.path.abspath(result_file.name).replace("\\", "/")
 
-        # embeddings
+        # 写输入数据
+        pypremise.io.write_dat_content(instances, feature_path, label_path)
+
+        # === embeddings 文件 ===
         if self.embedding_index_to_vector is not None:
             embedding_file = tempfile.NamedTemporaryFile(delete=False)
-            embedding_path = embedding_file.name
+            embedding_file.close()
+            embedding_path = os.path.abspath(embedding_file.name).replace("\\", "/")
+
             max_feature_index = Premise._get_max_feature_index(instances)
-            pypremise.io.write_embedding_file(self.embedding_index_to_vector, embedding_path,
-                                            self.embedding_dimensionality, max_feature_index)
+            pypremise.io.write_embedding_file(
+                self.embedding_index_to_vector,
+                embedding_path,
+                self.embedding_dimensionality,
+                max_feature_index
+            )
         else:
             embedding_file = None
             embedding_path = ""
 
-        # actual Premise
+        # === 调用 Premise C++ 程序 ===
         start_time = time.time()
-        pypremise.io.call_premise_program(feature_file.name, label_file.name, result_file.name, embedding_path,
-                                          self.embedding_dimensionality, self.max_neighbor_distance,
-                                          self.fisher_p_value, self.clause_max_overlap, self.min_overlap,
-                                          self.premise_engine)
-        logger.info(f"Premise ran for {time.time() - start_time} seconds.")
+        pypremise.io.call_premise_program(
+            feature_path, label_path, result_path, embedding_path,
+            self.embedding_dimensionality, self.max_neighbor_distance,
+            self.fisher_p_value, self.clause_max_overlap, self.min_overlap,
+            self.premise_engine
+        )
+        logger.info(f"Premise ran for {time.time() - start_time:.2f} seconds.")
 
-        results = pypremise.io.parse_premise_result(result_file.name, self.group_0_name, self.group_1_name)
+        # === 调试：检查 result 文件 ===
+        try:
+            size = os.path.getsize(result_path)
+            logger.info(f"Result file size: {size} bytes")
+            if size == 0:
+                logger.warning("Result file is empty — check Premise stderr or parameters.")
+        except Exception as e:
+            logger.error(f"Could not stat result file: {e}")
 
-        # clean up temporary files
-        os.remove(feature_file.name)
-        os.remove(label_file.name)
-        os.remove(result_file.name)
+        # === 解析结果 ===
+        results = pypremise.io.parse_premise_result(
+            result_path, self.group_0_name, self.group_1_name
+        )
+
+        # === 清理临时文件（Windows 下可能需要重试） ===
+        def safe_remove(path):
+            try:
+                os.remove(path)
+            except PermissionError:
+                time.sleep(0.2)
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+
+        for f in [feature_path, label_path, result_path]:
+            safe_remove(f)
         if embedding_file is not None:
-            os.remove(embedding_file.name)
+            safe_remove(embedding_path)
 
-        # if we have a map from indices to tokens, use it to convert our patterns indices to tokens
+        # === 映射 token ===
         if self.voc_index_to_token is not None:
             self._pattern_indices_to_tokens(results)
 
         return results
+
+
 
     def _pattern_indices_to_tokens(self, results: List[PremiseResult]):
         """
