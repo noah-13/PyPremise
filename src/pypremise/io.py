@@ -130,7 +130,6 @@ def call_premise_program(
             text=True
         )
 
-        # 一次性收集 stdout / stderr，并等待进程结束
         stdout_output, stderr_output = process.communicate()
 
         if stdout_output:

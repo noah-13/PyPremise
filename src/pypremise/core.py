@@ -95,7 +95,6 @@ class Premise:
                  group_1_name: str = "group 1",
                  premise_engine: Optional[str] = None):
 
-        # 参数校验
         if (embedding_index_to_vector is not None 
             or embedding_dimensionality > 0 
             or max_neighbor_distance > 0):
@@ -109,7 +108,6 @@ class Premise:
                     "the max_neighbor_distance must be > 0."
                 )
 
-        # 保存参数
         self.voc_index_to_token = voc_index_to_token
         self.embedding_index_to_vector = embedding_index_to_vector
         self.embedding_dimensionality = embedding_dimensionality
@@ -120,9 +118,8 @@ class Premise:
         self.group_0_name = group_0_name
         self.group_1_name = group_1_name
 
-        # === 统一 Premise 可执行文件路径 ===
+        # === Premise.exe path ===
         if premise_engine is not None:
-            # 用户手动传入路径
             self.premise_engine = premise_engine
         else:
             system = platform.system()
@@ -140,7 +137,6 @@ class Premise:
             exe_path = os.path.join(base_dir, exe_name)
             self.premise_engine = exe_path
 
-        # 检查可执行文件是否存在
         if not os.path.exists(self.premise_engine):
             raise FileNotFoundError(
                 f"Premise binary not found at: {self.premise_engine}\n"
@@ -157,7 +153,6 @@ class Premise:
         import pypremise.io
         import os, time, tempfile
 
-        # === 创建临时文件，并立刻 close()，避免 Windows 锁定 ===
         feature_file = tempfile.NamedTemporaryFile(delete=False)
         feature_file.close()
         label_file = tempfile.NamedTemporaryFile(delete=False)
@@ -169,10 +164,9 @@ class Premise:
         label_path   = os.path.abspath(label_file.name).replace("\\", "/")
         result_path  = os.path.abspath(result_file.name).replace("\\", "/")
 
-        # 写输入数据
         pypremise.io.write_dat_content(instances, feature_path, label_path)
 
-        # === embeddings 文件 ===
+        # === embeddings ===
         if self.embedding_index_to_vector is not None:
             embedding_file = tempfile.NamedTemporaryFile(delete=False)
             embedding_file.close()
@@ -189,7 +183,7 @@ class Premise:
             embedding_file = None
             embedding_path = ""
 
-        # === 调用 Premise C++ 程序 ===
+        # === call Premise C++ program ===
         start_time = time.time()
         pypremise.io.call_premise_program(
             feature_path, label_path, result_path, embedding_path,
@@ -199,7 +193,7 @@ class Premise:
         )
         logger.info(f"Premise ran for {time.time() - start_time:.2f} seconds.")
 
-        # === 调试：检查 result 文件 ===
+        # === check result file ===
         try:
             size = os.path.getsize(result_path)
             logger.info(f"Result file size: {size} bytes")
@@ -208,12 +202,11 @@ class Premise:
         except Exception as e:
             logger.error(f"Could not stat result file: {e}")
 
-        # === 解析结果 ===
+        # === analyse results ===
         results = pypremise.io.parse_premise_result(
             result_path, self.group_0_name, self.group_1_name
         )
 
-        # === 清理临时文件（Windows 下可能需要重试） ===
         def safe_remove(path):
             try:
                 os.remove(path)
@@ -229,7 +222,6 @@ class Premise:
         if embedding_file is not None:
             safe_remove(embedding_path)
 
-        # === 映射 token ===
         if self.voc_index_to_token is not None:
             self._pattern_indices_to_tokens(results)
 
