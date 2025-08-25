@@ -25,6 +25,7 @@ from enum import Enum
 import tempfile
 import time
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -79,35 +80,22 @@ class PremiseResult:
                f"{self.label1_count} in {self.group_1_name})"
 
 
-import os
-import platform
-
 class Premise:
-    def __init__(self, 
-                 voc_index_to_token: Optional[Mapping[int, str]] = None,
-                 embedding_index_to_vector: Optional[Mapping] = None, 
-                 embedding_dimensionality: int = -1,
+
+    def __init__(self, voc_index_to_token: Optional[Mapping[int, str]] = None,
+                 embedding_index_to_vector: Optional[Mapping] = None, embedding_dimensionality: int = -1,
                  max_neighbor_distance: int = 0,
-                 fisher_p_value: float = 0.01, 
-                 clause_max_overlap: float = 0.05, 
-                 min_overlap: float = 0.3,
-                 group_0_name: str = "group 0", 
-                 group_1_name: str = "group 1",
+                 fisher_p_value: float = 0.01, clause_max_overlap: float = 0.05, min_overlap: float = 0.3,
+                 group_0_name: str = "group 0", group_1_name: str = "group 1",
                  premise_engine: Optional[str] = None):
 
-        if (embedding_index_to_vector is not None 
-            or embedding_dimensionality > 0 
-            or max_neighbor_distance > 0):
-            if not (embedding_index_to_vector is not None 
-                    and embedding_dimensionality > 0 
-                    and max_neighbor_distance > 0):
-                raise Exception(
-                    "If you use embeddings, you must set all three parts correctly: "
-                    "embedding_token_to_vector must be a map from tokens to vectors, "
-                    "the embedding dimensionality must be given, and "
-                    "the max_neighbor_distance must be > 0."
-                )
-
+        if embedding_index_to_vector is not None or embedding_dimensionality > 0 or max_neighbor_distance > 0:
+            # if we use embeddings, all values need to be set correctly
+            if not (embedding_index_to_vector is not None and embedding_dimensionality > 0 and
+                    max_neighbor_distance > 0):
+                raise Exception("If you use embeddings, you must set all three parts correctly:"
+                                "embedding_token_to_vector must be a map from tokens to vectors, the "
+                                "embedding dimensionality must be given and the max_neighbor_distance must be > 0.")
         self.voc_index_to_token = voc_index_to_token
         self.embedding_index_to_vector = embedding_index_to_vector
         self.embedding_dimensionality = embedding_dimensionality
@@ -117,41 +105,13 @@ class Premise:
         self.min_overlap = min_overlap
         self.group_0_name = group_0_name
         self.group_1_name = group_1_name
-
-        # === Premise.exe path ===
-        if premise_engine is not None:
-            self.premise_engine = premise_engine
-        else:
-            system = platform.system()
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-
-            if system == "Windows":
-                exe_name = "Premise_Windows.exe"
-            elif system == "Linux":
-                exe_name = "Premise_Linux"
-            elif system == "Darwin":  # macOS
-                exe_name = "Premise_Applesilicon"
-            else:
-                raise RuntimeError(f"Unsupported OS: {system}")
-
-            exe_path = os.path.join(base_dir, exe_name)
-            self.premise_engine = exe_path
-
-        if not os.path.exists(self.premise_engine):
-            raise FileNotFoundError(
-                f"Premise binary not found at: {self.premise_engine}\n"
-                f"Expected in src/pypremise directory as "
-                f"'Premise_Windows.exe' (Windows), 'Premise_Linux' (Linux), "
-                f"or 'Premise_Applesilicon' (macOS). "
-                f"Alternatively, pass `premise_engine=...` explicitly."
-            )
+        self.premise_engine = premise_engine
 
 
 
 
     def find_patterns(self, instances: List[PremiseInstance]):
         import pypremise.io
-        import os, time, tempfile
 
         feature_file = tempfile.NamedTemporaryFile(delete=False)
         feature_file.close()
@@ -185,6 +145,8 @@ class Premise:
 
         # === call Premise C++ program ===
         start_time = time.time()
+        if self.premise_engine is None:
+            self.premise_engine = pypremise.io.get_premise_path()
         pypremise.io.call_premise_program(
             feature_path, label_path, result_path, embedding_path,
             self.embedding_dimensionality, self.max_neighbor_distance,
