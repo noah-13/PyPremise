@@ -82,9 +82,9 @@ Premise(premise_engine="local_path:/path/to/your/premise/binary.exe")
 ```
 
 
-## Issues, License & Citation
+## Authors, Issues, License & Citation
 
-If you run into any issues using PyPremise, do not hesitate to contact us (e-mail in the publication) or create an issue on Github.
+PyPremise is developed by the [Human-Centric NLP & AI group](https://michael-hedderich.de/group/) at LMU Munich. If you run into any issues using PyPremise, do not hesitate to contact us via mail or create an issue on Github.
 
 If you use this tool in your work, we would be happy if you tell us about it.
 
