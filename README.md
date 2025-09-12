@@ -1,6 +1,6 @@
 # PyPremise
 
-Premise is a data mining method to identify significant differences between two groups of texts. It can be used, e.g., to identify from the outputs of an LLM what systematic differences occur if you change your prompt. Or it can identify patterns or explanations of where an NLP classifier performs well 
+[Premise](https://aclanthology.org/2025.acl-long.985/) is a data mining method to identify significant differences between two groups of texts. It can be used, e.g., to identify from the outputs of an LLM what systematic differences occur if you change your prompt. Or it can identify patterns or explanations of where an NLP classifier performs well 
 and where it fails.
 
 PyPremise is a Python library to makes it easy to run Premise with just a couple of lines of code.
@@ -56,20 +56,24 @@ Install a recent version of Python, then just run
 pip install pypremise
 ```
 
-Currently, PyPremise directly supports Linux (Ubuntu) and Mac (Apple Silicon, the "M" processors). We are  working on a Windows port (also see "Native Code" section below).
+Currently, PyPremise directly supports Linux (AMD64/X86-64), Mac (Apple Silicon, the "M" processors) and Windows. See the section "Native Code" below for other platforms.
 
-## Documentation
+## Tutorials
+We provide several Jupyter Notebooks as tutorials. Ideally, you start with the "General introductory example" and then you can pick tutorials for more specific use cases.
+
 - General introductory example: [`general_example.ipynb`](./documentation/general_example.ipynb)
-- How to evaluate LLM outputs: [`LLM_outputs_examples.ipynb`](./documentation/LLM_outputs_examples.ipynb)
-- How to explain misclassifications: [`missclassification_examples.ipynb`](./documentation/missclassification_examples.ipynb)
+- How to evaluate LLM outputs ([Spotlight](https://aclanthology.org/2025.acl-long.985/) usecase): [`LLM_outputs_examples.ipynb`](./documentation/LLM_outputs_examples.ipynb)
+- How to explain misclassifications of NLP models (original [Premise](https://aclanthology.org/2025.acl-long.985/) usecase): [`missclassification_examples.ipynb`](./documentation/missclassification_examples.ipynb)
 - How to use word embeddings for more complex results: [`word_embedding_examples.ipynb`](./documentation/word_embedding_examples.ipynb)
 
-## Code Reference
+If you need additional help, do not hesitate to reach out to us!
+
+## Additional data loaders
 
 The file [`data_loaders.py`](./src/pypremise/data_loaders.py) contains helper functions for loading data from various sources such as token lists, NumPy-like arrays, or CSV files. If you want to load your own data, refer to this file for examples and supported formats.
 
 ## Native Code
-The core code of the Premise algorithm is implemented in C++ for efficiency and runtime reasons. You ca find it in the original [Premise](https://github.com/uds-lsv/premise) repository. You can use Premise without the PyPremise Python wrapper following the instructions there.
+The core code of the Premise algorithm is implemented in C++ for efficiency and runtime reasons. You can find it in the original [Premise](https://github.com/uds-lsv/premise) repository. You can use the native version of Premise (without the PyPremise Python wrapper) following the instructions there.
 
 If you have your own compiled version of Premise (e.g. for a currently not supported platform), you can use it in PyPremise via the ``premise_engine`` argument of the pypremise.core.Premise constructor. Just use
 
