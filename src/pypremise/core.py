@@ -25,6 +25,7 @@ from enum import Enum
 import tempfile
 import time
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -106,50 +107,89 @@ class Premise:
         self.group_1_name = group_1_name
         self.premise_engine = premise_engine
 
+
+
+
     def find_patterns(self, instances: List[PremiseInstance]):
         import pypremise.io
-        import os
 
-        # the Premise C++ code reads and write to files for in and output
         feature_file = tempfile.NamedTemporaryFile(delete=False)
+        feature_file.close()
         label_file = tempfile.NamedTemporaryFile(delete=False)
+        label_file.close()
         result_file = tempfile.NamedTemporaryFile(delete=False)
+        result_file.close()
 
-        pypremise.io.write_dat_content(instances, feature_file.name, label_file.name)
+        feature_path = os.path.abspath(feature_file.name).replace("\\", "/")
+        label_path   = os.path.abspath(label_file.name).replace("\\", "/")
+        result_path  = os.path.abspath(result_file.name).replace("\\", "/")
 
-        # embeddings
+        pypremise.io.write_dat_content(instances, feature_path, label_path)
+
+        # === embeddings ===
         if self.embedding_index_to_vector is not None:
             embedding_file = tempfile.NamedTemporaryFile(delete=False)
-            embedding_path = embedding_file.name
+            embedding_file.close()
+            embedding_path = os.path.abspath(embedding_file.name).replace("\\", "/")
+
             max_feature_index = Premise._get_max_feature_index(instances)
-            pypremise.io.write_embedding_file(self.embedding_index_to_vector, embedding_path,
-                                            self.embedding_dimensionality, max_feature_index)
+            pypremise.io.write_embedding_file(
+                self.embedding_index_to_vector,
+                embedding_path,
+                self.embedding_dimensionality,
+                max_feature_index
+            )
         else:
             embedding_file = None
             embedding_path = ""
 
-        # actual Premise
+        # === call Premise C++ program ===
         start_time = time.time()
-        pypremise.io.call_premise_program(feature_file.name, label_file.name, result_file.name, embedding_path,
-                                          self.embedding_dimensionality, self.max_neighbor_distance,
-                                          self.fisher_p_value, self.clause_max_overlap, self.min_overlap,
-                                          self.premise_engine)
-        logger.info(f"Premise ran for {time.time() - start_time} seconds.")
+        if self.premise_engine is None:
+            self.premise_engine = pypremise.io.get_premise_path()
+        pypremise.io.call_premise_program(
+            feature_path, label_path, result_path, embedding_path,
+            self.embedding_dimensionality, self.max_neighbor_distance,
+            self.fisher_p_value, self.clause_max_overlap, self.min_overlap,
+            self.premise_engine
+        )
+        logger.info(f"Premise ran for {time.time() - start_time:.2f} seconds.")
 
-        results = pypremise.io.parse_premise_result(result_file.name, self.group_0_name, self.group_1_name)
+        # === check result file ===
+        try:
+            size = os.path.getsize(result_path)
+            logger.info(f"Result file size: {size} bytes")
+            if size == 0:
+                logger.warning("Result file is empty — check Premise stderr or parameters.")
+        except Exception as e:
+            logger.error(f"Could not stat result file: {e}")
 
-        # clean up temporary files
-        os.remove(feature_file.name)
-        os.remove(label_file.name)
-        os.remove(result_file.name)
+        # === analyse results ===
+        results = pypremise.io.parse_premise_result(
+            result_path, self.group_0_name, self.group_1_name
+        )
+
+        def safe_remove(path):
+            try:
+                os.remove(path)
+            except PermissionError:
+                time.sleep(0.2)
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+
+        for f in [feature_path, label_path, result_path]:
+            safe_remove(f)
         if embedding_file is not None:
-            os.remove(embedding_file.name)
+            safe_remove(embedding_path)
 
-        # if we have a map from indices to tokens, use it to convert our patterns indices to tokens
         if self.voc_index_to_token is not None:
             self._pattern_indices_to_tokens(results)
 
         return results
+
+
 
     def _pattern_indices_to_tokens(self, results: List[PremiseResult]):
         """

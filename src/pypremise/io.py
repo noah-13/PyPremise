@@ -35,6 +35,9 @@ PREMISE_ENGINE_NAME_LINUX = "Linux"
 PREMISE_ENGINE_NAME_APPLE_SILICON = "AppleSilicon"
 PREMISE_LINUX_FILENAME = "Premise_Linux"
 PREMISE_APPLESILICON_FILENAME = "Premise_AppleSilicon"
+PREMISE_ENGINE_NAME_WINDOWS = "Premise_Windows"
+PREMISE_WINDOWS_FILENAME = "Premise_Windows.exe"
+
 
 logger = logging.getLogger(__name__)
 
@@ -87,35 +90,62 @@ def write_embedding_file(embedding_index_to_vector, embedding_path: str, embeddi
     out_file.flush()
 
 
-def call_premise_program(feature_path: str, label_path: str, result_path: str, embedding_path: str,
-                         embedding_size: int, neighbor_max_distance: int, fisher_p_value: float,
-                         clause_max_overlap: float, min_overlap: float, 
-                         premise_engine: Optional[str] = None) -> None:
-    premise_path = get_premise_path(premise_engine)
+def call_premise_program(
+    feature_path,
+    label_path,
+    result_path,
+    embedding_path,
+    embedding_size,
+    neighbor_max_distance,
+    fisher_p_value,
+    clause_max_overlap,
+    min_overlap,
+    premise_engine
+):
+    import subprocess, logging
+    logger = logging.getLogger(__name__)
 
     logger.info("Starting Premise. This might take a while.")
-    try:
-        stdout_output = ""
-        with subprocess.Popen([premise_path, feature_path, label_path, result_path,
-                                    embedding_path,
-                                    str(embedding_size), str(neighbor_max_distance),
-                                    str(fisher_p_value), str(clause_max_overlap), str(min_overlap)],
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, text=True) as process:
-            for line in process.stdout:
-                logger.info(line)
-            stdout_output += line
-            process.wait()
 
-            stderr_output = process.stderr.read()
+    cmd = [
+        premise_engine,
+        feature_path,
+        label_path,
+        result_path,
+        embedding_path,
+        str(embedding_size),
+        str(neighbor_max_distance),
+        str(fisher_p_value),
+        str(clause_max_overlap),
+        str(min_overlap),
+    ]
+
+    logger.info("Premise command: " + " ".join(cmd))
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        stdout_output, stderr_output = process.communicate()
+
+        if stdout_output:
+            logger.info("Premise stdout:\n" + stdout_output)
+        if stderr_output:
+            logger.error("Premise stderr:\n" + stderr_output)
+
+        if process.returncode != 0:
+            raise Exception(
+                f"Premise exited with code {process.returncode}. "
+                f"stderr:\n{stderr_output}"
+            )
 
     except Exception as e:
         raise Exception(f"Execution of Premise failed due to '{e}'.")
-    
-    if len(stderr_output) > 0:
-        logger.error(f"Premise reported an error.\nThe error output was" + 
-                     "\n\n-------\n{stderr}\n-------")
-        raise Exception(f"Premise reported an error.")
+
 
 
 def get_premise_path(premise_engine: Optional[str] = None):
@@ -158,6 +188,8 @@ def get_premise_path(premise_engine: Optional[str] = None):
             premise_engine = PREMISE_ENGINE_NAME_LINUX
         elif try_premise(os.path.join(module_path, PREMISE_APPLESILICON_FILENAME)):
             premise_engine = PREMISE_ENGINE_NAME_APPLE_SILICON
+        elif try_premise(os.path.join(module_path, PREMISE_WINDOWS_FILENAME)):
+            premise_engine = PREMISE_ENGINE_NAME_WINDOWS
         
         if premise_engine != None:
             # we found one! Let's try to store it
@@ -179,6 +211,8 @@ def get_premise_path(premise_engine: Optional[str] = None):
         path = os.path.join(module_path, PREMISE_LINUX_FILENAME)
     elif premise_engine == PREMISE_ENGINE_NAME_APPLE_SILICON:
         path = os.path.join(module_path, PREMISE_APPLESILICON_FILENAME)
+    elif premise_engine == PREMISE_ENGINE_NAME_WINDOWS:
+        path = os.path.join(module_path, PREMISE_WINDOWS_FILENAME)
     else:
         raise Exception(f"Unknown Premise engine '{premise_engine}'")
 
