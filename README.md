@@ -1,6 +1,6 @@
 # PyPremise
 
-Premise is a data mining method to identify significant differences between two groups of texts. It can be used, e.g., to identify from the outputs of an LLM what systematic differences occur if you change your prompt. Or it can identify patterns or explanations of where an NLP classifier performs well 
+[Premise](https://aclanthology.org/2025.acl-long.985/) is a data mining method to identify significant differences between two groups of texts. It can be used, e.g., to identify from the outputs of an LLM what systematic differences occur if you change your prompt. Or it can identify patterns or explanations of where an NLP classifier performs well 
 and where it fails.
 
 PyPremise is a Python library to makes it easy to run Premise with just a couple of lines of code.
@@ -8,7 +8,7 @@ PyPremise is a Python library to makes it easy to run Premise with just a couple
 ## Example Applications
 
 ### Systematic differences between two prompts or two LLMs
-Premise identified, e.g., that changing the last name of the protagonist from Dr. Li to Dr. Smith in a story generation prompt caused - among other differences - a drastic change in the gender distribution (more details and examples [here](https://arxiv.org/abs/2504.15815))
+Premise identified, e.g., that changing the last name of the protagonist from Dr. Li to Dr. Smith in a story generation prompt caused - among other differences - a drastic change in the gender distribution (more details and examples [here](https://aclanthology.org/2025.acl-long.985/))
 
 | Patterns Group 0 (Dr. Li)                                      | Patterns Group 1 (Dr. Smith)       |
 |----------------------------------------------|--------------------------------|
@@ -56,37 +56,54 @@ Install a recent version of Python, then just run
 pip install pypremise
 ```
 
-Currently, PyPremise directly supports  Linux (Ubuntu) and Mac (Apple Silicon, the "M" processors). If you want to use PyPremise on a different platform, please follow these instructions.
+Currently, PyPremise directly supports Linux (AMD64/X86-64), Mac (Apple Silicon, the "M" processors) and Windows. See the section "Native Code" below for other platforms.
 
-## Documentation
+## Tutorials
+We provide several Jupyter Notebooks as tutorials. Ideally, you start with the "General introductory example" and then you can pick tutorials for more specific use cases.
+
 - General introductory example: [`general_example.ipynb`](./documentation/general_example.ipynb)
-- How to evaluate LLM outputs: [`LLM_outputs_examples.ipynb`](./documentation/LLM_outputs_examples.ipynb)
-- How to explain misclassifications: [`missclassification_examples.ipynb`](./documentation/missclassification_examples.ipynb)
+- How to evaluate LLM outputs ([Spotlight](https://aclanthology.org/2025.acl-long.985/) usecase): [`LLM_outputs_examples.ipynb`](./documentation/LLM_outputs_examples.ipynb)
+- How to explain misclassifications of NLP models (original [Premise](https://aclanthology.org/2025.acl-long.985/) usecase): [`missclassification_examples.ipynb`](./documentation/missclassification_examples.ipynb)
 - How to use word embeddings for more complex results: [`word_embedding_examples.ipynb`](./documentation/word_embedding_examples.ipynb)
+- How to control and interpret log levels: [`logging_tutorial.ipynb`](./documentation/logging_tutorial.ipynb)
 
-## Code Reference
+If you need additional help, do not hesitate to reach out to us!
 
-- Data loaders: [`data_loaders.py`](./src/pypremise/data_loaders.py)
-- This file contains helper functions for loading data from various sources such as token lists, NumPy-like arrays, or CSV files.  
-  If you want to load your own data, refer to this file for examples and supported formats.
+## Additional data loaders
 
-## Issues, License & Citation
+The file [`data_loaders.py`](./src/pypremise/data_loaders.py) contains helper functions for loading data from various sources such as token lists, NumPy-like arrays, or CSV files. If you want to load your own data, refer to this file for examples and supported formats.
 
-If you run into any issues using PyPremise, do not hesitate to contact us (e-mail in the publication) or create an issue on Github.
+## Native Code
+The core code of the Premise algorithm is implemented in C++ for efficiency and runtime reasons. You can find it in the original [Premise](https://github.com/uds-lsv/premise) repository. You can use the native version of Premise (without the PyPremise Python wrapper) following the instructions there.
+
+If you have your own compiled version of Premise (e.g. for a currently not supported platform), you can use it in PyPremise via the ``premise_engine`` argument of the pypremise.core.Premise constructor. Just use
+
+```
+Premise(premise_engine="local_path:/path/to/your/premise/binary.exe")
+```
+
+
+## Authors, Issues, License & Citation
+
+PyPremise is developed by the [Human-Centric NLP & AI group](https://michael-hedderich.de/group/) at LMU Munich. If you run into any issues using PyPremise, do not hesitate to contact us via mail or create an issue on Github.
 
 If you use this tool in your work, we would be happy if you tell us about it.
 
 If you use PyPremise to evaluate the output of LLMs, please cite
 
 ```
-@misc{hedderich2025whatsdifferencesupportingusers,
-      title={What's the Difference? Supporting Users in Identifying the Effects of Prompt and Model Changes Through Token Patterns}, 
-      author={Michael A. Hedderich and Anyi Wang and Raoyuan Zhao and Florian Eichin and Barbara Plank},
-      year={2025},
-      eprint={2504.15815},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2504.15815}, 
+@inproceedings{hedderich-etal-2025-whats,
+    title = "What{'}s the Difference? Supporting Users in Identifying the Effects of Prompt and Model Changes Through Token Patterns",
+    author = "Hedderich, Michael A.  and
+      Wang, Anyi  and
+      Zhao, Raoyuan  and
+      Eichin, Florian  and
+      Fischer, Jonas  and
+      Plank, Barbara",
+    booktitle = "Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)",
+    year = "2025",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.acl-long.985/"
 }
 ```
 
